@@ -335,6 +335,9 @@ def check_point_collision():
     if distance < (player_size/2 + point_size):
         current_time = time.time()
         
+        # Add score with multiplier (score_multiplier points per collection)
+        score += score_multiplier
+
         # Check if this point was collected within the multiplier time window
         if current_time - last_point_time < multiplier_duration:
             # Increase multiplier (up to max)
@@ -342,9 +345,6 @@ def check_point_collision():
         else:
             # Reset multiplier if too much time has passed
             score_multiplier = 1
-        
-        # Add score with multiplier
-        score += 1 * score_multiplier
         
         # Update last point time
         last_point_time = current_time
@@ -443,21 +443,21 @@ def draw_start_screen():
 
 def draw_multiplier_bar():
     """Draw the multiplier timer bar and current multiplier"""
+    # Always draw multiplier text, even at 1x
+    font = pygame.font.SysFont(None, 36)
+    multiplier_text = font.render(f"{score_multiplier}x", True, ORANGE)
+    multiplier_rect = multiplier_text.get_rect(topleft=(20, 20))
+    screen.blit(multiplier_text, multiplier_rect)
+    
+    # Draw timer bar background
+    bar_width = 150
+    bar_height = 15
+    bar_x = 60
+    bar_y = 30
+    pygame.draw.rect(screen, WHITE, (bar_x, bar_y, bar_width, bar_height), 1)
+    
+    # Draw timer bar fill only if multiplier > 1
     if score_multiplier > 1:
-        # Draw multiplier text
-        font = pygame.font.SysFont(None, 36)
-        multiplier_text = font.render(f"{score_multiplier}x", True, ORANGE)
-        multiplier_rect = multiplier_text.get_rect(topleft=(20, 20))
-        screen.blit(multiplier_text, multiplier_rect)
-        
-        # Draw timer bar background
-        bar_width = 150
-        bar_height = 15
-        bar_x = 60
-        bar_y = 30
-        pygame.draw.rect(screen, WHITE, (bar_x, bar_y, bar_width, bar_height), 1)
-        
-        # Draw timer bar fill
         fill_width = int((multiplier_timer / multiplier_duration) * bar_width)
         if fill_width > 0:
             pygame.draw.rect(screen, ORANGE, (bar_x, bar_y, fill_width, bar_height))
