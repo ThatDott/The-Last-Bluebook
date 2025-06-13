@@ -3,9 +3,11 @@ import sys
 import math
 import random
 import time
+import os
 
 # Initialize Pygame
 pygame.init()
+pygame.mixer.init()  # Initialize the mixer for sound effects
 
 # Constants
 SCREEN_WIDTH = 800
@@ -28,19 +30,43 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Projectile Dodge Game")
 clock = pygame.time.Clock()
 
+# Create sounds directory if it doesn't exist
+sounds_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sounds")
+os.makedirs(sounds_dir, exist_ok=True)
+
+# Load sound files
+try:
+    # Game over sound
+    game_over_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over.wav"))
+    # Point gain sound
+    point_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "point.wav"))
+    # Level up sound
+    level_up_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "level_up.wav"))
+    # Projectile launch sound
+    projectile_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "projectile.wav"))
+except Exception as e:
+    print(f"Error loading sound files: {e}")
+    # Create silent sounds as fallback
+    game_over_sound = pygame.mixer.Sound(buffer=bytes([0]))
+    point_sound = pygame.mixer.Sound(buffer=bytes([0]))
+    level_up_sound = pygame.mixer.Sound(buffer=bytes([0]))
+    projectile_sound = pygame.mixer.Sound(buffer=bytes([0]))
+
 # Game variables
 player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]  # Start player away from center
 player_size = 50
 player_speed = 5
 game_over = False
 score = 0
+difficulty_level = 1
 
 # Projectile variables
 projectiles = []
 projectile_size = 15
 projectile_speed = 4
 last_projectile_time = time.time()
-projectile_interval = 1.0  # 1 projectile per second
+base_projectile_interval = 1.0  # Base interval (1 projectile per second)
+projectile_interval = base_projectile_interval  # Current interval
 
 # Point object variables
 point_pos = [0, 0]
@@ -98,14 +124,32 @@ def generate_point_position():
         if distance >= min_distance_from_center:
             return [x, y]
 
+def update_difficulty():
+    """Update difficulty based on score"""
+    global projectile_interval, difficulty_level
+
+    new_level = (score // 5) + 1
+
+    if new_level > difficulty_level:
+        # Level up - increase difficulty
+        difficulty_level = new_level
+        projectile_interval = base_projectile_interval / (1 + (difficulty_level - 1) * 0.2)
+        level_up_sound.play()
+        return True
+
+    return False
+
 def reset_game():
     """Reset the game state"""
     global player_pos, projectiles, game_over, score, last_projectile_time, point_pos
+    global difficulty_level, projectile_interval
 
     player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]
     projectiles = []
     game_over = False
     score = 0
+    difficulty_level = 1
+    projectile_interval = base_projectile_interval
     last_projectile_time = time.time()
     point_pos = generate_point_position()
 
@@ -161,6 +205,10 @@ def check_point_collision():
     if distance < (player_size/2 + point_size):
         score += 1
         point_pos = generate_point_position()
+        point_sound.play()  # Play point sound
+
+        # Check if difficulty should increase
+        update_difficulty()
         return True
 
     return False
@@ -172,13 +220,16 @@ def update():
     if game_over:
         return
 
-    # Generate new projectile every second
+    # Generate new projectile based on current interval
     current_time = time.time()
     if current_time - last_projectile_time >= projectile_interval:
         # Create a new projectile aimed at the player's current position
         new_projectile = Projectile(player_pos[0] + player_size/2, player_pos[1] + player_size/2)
         projectiles.append(new_projectile)
         last_projectile_time = current_time
+        
+        # Play projectile launch sound
+        projectile_sound.play()
 
     # Update projectiles and check for collisions
     i = 0
@@ -187,6 +238,7 @@ def update():
             # Check for collision with player
             if projectiles[i].check_collision(player_pos[0], player_pos[1], player_size):
                 game_over = True
+                game_over_sound.play()  # Play game over sound
             i += 1
         else:
             # Remove projectile if it's out of bounds
@@ -213,9 +265,9 @@ def draw():
     # Draw player (a simple rectangle)
     pygame.draw.rect(screen, RED, (player_pos[0], player_pos[1], player_size, player_size))
 
-    # Draw score
+    # Draw score and level
     font = pygame.font.SysFont(None, 36)
-    score_text = font.render(f"Score: {score}", True, WHITE)
+    score_text = font.render(f"Score: {score}  Level: {difficulty_level}", True, WHITE)
     score_rect = score_text.get_rect(center=(SCREEN_WIDTH/2, 30))
     screen.blit(score_text, score_rect)
 
