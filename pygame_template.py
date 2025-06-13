@@ -4,6 +4,7 @@ import math
 import random
 import time
 import os
+import json
 
 # Initialize Pygame
 pygame.init()
@@ -15,6 +16,11 @@ SCREEN_HEIGHT = 600
 FPS = 60
 CENTER_X = SCREEN_WIDTH // 2
 CENTER_Y = SCREEN_HEIGHT // 2
+
+# Game states
+STATE_START_SCREEN = 0
+STATE_PLAYING = 1
+STATE_GAME_OVER = 2
 
 # Colors
 BLACK = (0, 0, 0)
@@ -56,9 +62,13 @@ except Exception as e:
 player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]  # Start player away from center
 player_size = 50
 player_speed = 5
-game_over = False
+game_state = STATE_START_SCREEN
 score = 0
+high_score = 0
 difficulty_level = 1
+
+# Highscore file
+highscore_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "highscore.json")
 
 # Projectile variables
 projectiles = []
@@ -117,6 +127,26 @@ class Projectile:
         # Using player_size/2 as an approximation for player's radius
         return distance < (projectile_size + player_size/2)
 
+def load_high_score():
+    """Load high score from file"""
+    global high_score
+    try:
+        if os.path.exists(highscore_file):
+            with open(highscore_file, 'r') as f:
+                data = json.load(f)
+                high_score = data.get('high_score', 0)
+    except Exception as e:
+        print(f"Error loading high score: {e}")
+        high_score = 0
+
+def save_high_score():
+    """Save high score to file"""
+    try:
+        with open(highscore_file, 'w') as f:
+            json.dump({'high_score': high_score}, f)
+    except Exception as e:
+        print(f"Error saving high score: {e}")
+
 def generate_point_position():
     """Generate a random position for the point object away from the center"""
     while True:
@@ -146,49 +176,73 @@ def update_difficulty():
 
     return False
 
-def reset_game():
-    """Reset the game state"""
-    global player_pos, projectiles, game_over, score, last_projectile_time, point_pos
+def start_game():
+    """Start a new game"""
+    global player_pos, projectiles, game_state, score, last_projectile_time, point_pos
     global difficulty_level, projectile_interval
 
     player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]
     projectiles = []
-    game_over = False
+    game_state = STATE_PLAYING
     score = 0
     difficulty_level = 1
     projectile_interval = base_projectile_interval
     last_projectile_time = time.time()
     point_pos = generate_point_position()
 
+def reset_game():
+    """Reset the game state after game over"""
+    global game_state, high_score
+    
+    # Update high score if needed
+    if score > high_score:
+        high_score = score
+        save_high_score()
+    
+    # Return to start screen
+    game_state = STATE_START_SCREEN
+
 def handle_events():
     """Handle user input events"""
-    global player_pos, game_over
-
+    global player_pos, game_state
+    
+    player_moved = False
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return False
-
+        
         # Check for restart on game over
-        if game_over and event.type == pygame.KEYDOWN:
+        if game_state == STATE_GAME_OVER and event.type == pygame.KEYDOWN:
             if event.key == pygame.K_r:
                 reset_game()
-
-    if not game_over:
-        # Handle continuous key presses
-        keys = pygame.key.get_pressed()
+    
+    # Handle continuous key presses
+    keys = pygame.key.get_pressed()
+    
+    if game_state == STATE_START_SCREEN:
+        # Start the game when player moves
+        if keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]:
+            start_game()
+    
+    if game_state == STATE_PLAYING:
         if keys[pygame.K_LEFT]:
             player_pos[0] -= player_speed
+            player_moved = True
         if keys[pygame.K_RIGHT]:
             player_pos[0] += player_speed
+            player_moved = True
         if keys[pygame.K_UP]:
             player_pos[1] -= player_speed
+            player_moved = True
         if keys[pygame.K_DOWN]:
             player_pos[1] += player_speed
-
+            player_moved = True
+        
         # Keep player on screen
         player_pos[0] = max(0, min(player_pos[0], SCREEN_WIDTH - player_size))
         player_pos[1] = max(0, min(player_pos[1], SCREEN_HEIGHT - player_size))
-
+    
     return True
 
 def check_point_collision():
@@ -222,11 +276,11 @@ def check_point_collision():
 
 def update():
     """Update game state"""
-    global projectiles, last_projectile_time, game_over
-
-    if game_over:
+    global projectiles, last_projectile_time, game_state
+    
+    if game_state != STATE_PLAYING:
         return
-
+    
     # Generate new projectile based on current interval
     current_time = time.time()
     if current_time - last_projectile_time >= projectile_interval:
@@ -244,8 +298,14 @@ def update():
         if projectiles[i].update():
             # Check for collision with player
             if projectiles[i].check_collision(player_pos[0], player_pos[1], player_size):
-                game_over = True
+                game_state = STATE_GAME_OVER
                 game_over_sound.play()  # Play game over sound
+                
+                # Update high score if needed
+                global high_score
+                if score > high_score:
+                    high_score = score
+                    save_high_score()
             i += 1
         else:
             # Remove projectile if it's out of bounds
@@ -254,8 +314,46 @@ def update():
     # Check if player collected a point
     check_point_collision()
 
-def draw():
-    """Draw everything to the screen"""
+def draw_start_screen():
+    """Draw the start screen"""
+    screen.fill(BLACK)
+    
+    # Draw title
+    font_title = pygame.font.SysFont(None, 72)
+    title_text = font_title.render("PROJECTILE DODGE", True, WHITE)
+    title_rect = title_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/4))
+    
+    # Draw instructions
+    font_instructions = pygame.font.SysFont(None, 36)
+    instructions = [
+        "Use ARROW KEYS to move",
+        "Collect PURPLE points to score",
+        "Avoid YELLOW projectiles",
+        "Every 5 points increases difficulty",
+        "",
+        "Move to start the game"
+    ]
+    
+    # Draw player and projectile examples
+    pygame.draw.rect(screen, RED, (SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 + 80, player_size, player_size))
+    pygame.draw.circle(screen, YELLOW, (int(SCREEN_WIDTH/2), int(SCREEN_HEIGHT/2 + 100)), projectile_size)
+    pygame.draw.circle(screen, PURPLE, (int(SCREEN_WIDTH/2 + 100), int(SCREEN_HEIGHT/2 + 100)), point_size)
+    
+    # Draw high score
+    high_score_text = font_instructions.render(f"High Score: {high_score}", True, WHITE)
+    high_score_rect = high_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 50))
+    
+    # Render everything
+    screen.blit(title_text, title_rect)
+    for i, line in enumerate(instructions):
+        instruction_text = font_instructions.render(line, True, WHITE)
+        instruction_rect = instruction_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 50 + i * 30))
+        screen.blit(instruction_text, instruction_rect)
+    
+    screen.blit(high_score_text, high_score_rect)
+
+def draw_game():
+    """Draw the game screen"""
     # Clear the screen
     screen.fill(BLACK)
 
@@ -272,55 +370,87 @@ def draw():
     # Draw player (a simple rectangle)
     pygame.draw.rect(screen, RED, (player_pos[0], player_pos[1], player_size, player_size))
 
-    # Draw score and level
+    # Draw score, level and high score
     font = pygame.font.SysFont(None, 36)
     score_text = font.render(f"Score: {score}  Level: {difficulty_level}", True, WHITE)
     score_rect = score_text.get_rect(center=(SCREEN_WIDTH/2, 30))
+    
+    high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
+    high_score_rect = high_score_text.get_rect(topright=(SCREEN_WIDTH - 20, 20))
+    
     screen.blit(score_text, score_rect)
+    screen.blit(high_score_text, high_score_rect)
 
-    # Draw game over message and restart instruction
-    if game_over:
-        font_large = pygame.font.SysFont(None, 72)
-        font_small = pygame.font.SysFont(None, 36)
+def draw_game_over():
+    """Draw the game over screen"""
+    # Draw the game in the background
+    draw_game()
+    
+    # Draw semi-transparent overlay
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 128))  # Black with alpha
+    screen.blit(overlay, (0, 0))
+    
+    # Draw game over message
+    font_large = pygame.font.SysFont(None, 72)
+    font_small = pygame.font.SysFont(None, 36)
+    
+    game_over_text = font_large.render("GAME OVER", True, WHITE)
+    game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 40))
+    
+    final_score_text = font_small.render(f"Final Score: {score}", True, WHITE)
+    final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 20))
+    
+    # Show if high score was achieved
+    if score == high_score and score > 0:
+        new_high_text = font_small.render("NEW HIGH SCORE!", True, YELLOW)
+        new_high_rect = new_high_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 60))
+        screen.blit(new_high_text, new_high_rect)
+    
+    restart_text = font_small.render("Press 'R' to Return to Start", True, WHITE)
+    restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 100))
+    
+    screen.blit(game_over_text, game_over_rect)
+    screen.blit(final_score_text, final_score_rect)
+    screen.blit(restart_text, restart_rect)
 
-        game_over_text = font_large.render("GAME OVER", True, WHITE)
-        game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 40))
-
-        final_score_text = font_small.render(f"Final Score: {score}", True, WHITE)
-        final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 20))
-
-        restart_text = font_small.render("Press 'R' to Restart", True, WHITE)
-        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 70))
-
-        screen.blit(game_over_text, game_over_rect)
-        screen.blit(final_score_text, final_score_rect)
-        screen.blit(restart_text, restart_rect)
-
+def draw():
+    """Draw everything to the screen based on game state"""
+    if game_state == STATE_START_SCREEN:
+        draw_start_screen()
+    elif game_state == STATE_PLAYING:
+        draw_game()
+    elif game_state == STATE_GAME_OVER:
+        draw_game_over()
+    
     # Update the display
     pygame.display.flip()
 
 def main():
     """Main game loop"""
     global point_pos
-
+    
+    # Load high score
+    load_high_score()
+    
     # Initialize point position
     point_pos = generate_point_position()
 
     running = True
-
+    
     while running:
         # Handle events
         running = handle_events()
-
+        
         # Update game state
         update()
-
+        
         # Draw everything
         draw()
-
+        
         # Control the game speed
         clock.tick(FPS)
-
+    
     # Clean up
     pygame.quit()
     sys.exit()
