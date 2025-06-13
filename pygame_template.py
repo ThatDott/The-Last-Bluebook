@@ -30,6 +30,7 @@ GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 PURPLE = (128, 0, 128)
+ORANGE = (255, 165, 0)
 
 # Create the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -67,6 +68,13 @@ score = 0
 high_score = 0
 difficulty_level = 1
 
+# Score multiplier variables
+score_multiplier = 1
+max_multiplier = 5
+multiplier_timer = 0
+multiplier_duration = 5.0  # 5 seconds to collect the next point
+last_point_time = 0
+
 # Highscore file
 highscore_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "highscore.json")
 
@@ -77,7 +85,7 @@ projectile_speed = 4
 last_projectile_time = time.time()
 base_projectile_interval = 1.0  # Base interval (1 projectile per second)
 projectile_interval = base_projectile_interval  # Current interval
-max_angle_deviation = 45  # Maximum angle deviation in degrees (±45° = 90° total range)
+max_angle_deviation = 60  # Maximum angle deviation in degrees (±60° = 120° total range)
 
 # Point object variables
 point_pos = [0, 0]
@@ -176,10 +184,25 @@ def update_difficulty():
 
     return False
 
+def update_multiplier():
+    """Update the score multiplier based on time since last point"""
+    global score_multiplier, multiplier_timer
+    
+    if score_multiplier > 1:
+        current_time = time.time()
+        elapsed = current_time - last_point_time
+        
+        # Calculate remaining time for multiplier
+        multiplier_timer = max(0, multiplier_duration - elapsed)
+        
+        # Reset multiplier if timer runs out
+        if multiplier_timer <= 0:
+            score_multiplier = 1
+
 def start_game():
     """Start a new game"""
     global player_pos, projectiles, game_state, score, last_projectile_time, point_pos
-    global difficulty_level, projectile_interval
+    global difficulty_level, projectile_interval, score_multiplier, last_point_time
 
     player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]
     projectiles = []
@@ -189,6 +212,8 @@ def start_game():
     projectile_interval = base_projectile_interval
     last_projectile_time = time.time()
     point_pos = generate_point_position()
+    score_multiplier = 1
+    last_point_time = time.time()
 
 def reset_game():
     """Reset the game state after game over"""
@@ -247,31 +272,47 @@ def handle_events():
 
 def check_point_collision():
     """Check if player has collected the point"""
-    global score, point_pos
-
+    global score, point_pos, score_multiplier, last_point_time
+    
     # Get player center
     player_center_x = player_pos[0] + player_size/2
     player_center_y = player_pos[1] + player_size/2
-
+    
     # Get point center
     point_center_x = point_pos[0]
     point_center_y = point_pos[1]
-
+    
     # Calculate distance
     dx = player_center_x - point_center_x
     dy = player_center_y - point_center_y
     distance = math.sqrt(dx*dx + dy*dy)
-
+    
     # Check collision (using player_size/2 + point_size as collision radius)
     if distance < (player_size/2 + point_size):
-        score += 1
+        current_time = time.time()
+        
+        # Check if this point was collected within the multiplier time window
+        if current_time - last_point_time < multiplier_duration:
+            # Increase multiplier (up to max)
+            score_multiplier = min(score_multiplier + 1, max_multiplier)
+        else:
+            # Reset multiplier if too much time has passed
+            score_multiplier = 1
+        
+        # Add score with multiplier
+        score += 1 * score_multiplier
+        
+        # Update last point time
+        last_point_time = current_time
+        
+        # Generate new point
         point_pos = generate_point_position()
         point_sound.play()  # Play point sound
-
+        
         # Check if difficulty should increase
         update_difficulty()
         return True
-
+    
     return False
 
 def update():
@@ -280,6 +321,9 @@ def update():
     
     if game_state != STATE_PLAYING:
         return
+    
+    # Update multiplier timer
+    update_multiplier()
     
     # Generate new projectile based on current interval
     current_time = time.time()
@@ -330,6 +374,7 @@ def draw_start_screen():
         "Collect PURPLE points to score",
         "Avoid YELLOW projectiles",
         "Every 5 points increases difficulty",
+        "Collect points quickly for score multipliers",
         "",
         "Move to start the game"
     ]
@@ -351,6 +396,27 @@ def draw_start_screen():
         screen.blit(instruction_text, instruction_rect)
     
     screen.blit(high_score_text, high_score_rect)
+
+def draw_multiplier_bar():
+    """Draw the multiplier timer bar and current multiplier"""
+    if score_multiplier > 1:
+        # Draw multiplier text
+        font = pygame.font.SysFont(None, 36)
+        multiplier_text = font.render(f"{score_multiplier}x", True, ORANGE)
+        multiplier_rect = multiplier_text.get_rect(topleft=(20, 20))
+        screen.blit(multiplier_text, multiplier_rect)
+        
+        # Draw timer bar background
+        bar_width = 150
+        bar_height = 15
+        bar_x = 60
+        bar_y = 30
+        pygame.draw.rect(screen, WHITE, (bar_x, bar_y, bar_width, bar_height), 1)
+        
+        # Draw timer bar fill
+        fill_width = int((multiplier_timer / multiplier_duration) * bar_width)
+        if fill_width > 0:
+            pygame.draw.rect(screen, ORANGE, (bar_x, bar_y, fill_width, bar_height))
 
 def draw_game():
     """Draw the game screen"""
@@ -380,6 +446,9 @@ def draw_game():
     
     screen.blit(score_text, score_rect)
     screen.blit(high_score_text, high_score_rect)
+    
+    # Draw multiplier bar if active
+    draw_multiplier_bar()
 
 def draw_game_over():
     """Draw the game over screen"""
