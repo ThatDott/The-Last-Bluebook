@@ -135,6 +135,50 @@ class Projectile:
         # Using player_size/2 as an approximation for player's radius
         return distance < (projectile_size + player_size/2)
 
+def get_grade_info(score):
+    """Get grade and message based on score percentage"""
+    max_score = 200
+    percentage = min(100, (score / max_score) * 100)
+    
+    if percentage > 100:
+        grade = "1.00"
+        message = "SUMMA SOBRA NA ANG SCORE!"
+    elif percentage >= 95.2:
+        grade = "1.00"
+        message = "HALIMAW! SUMMA CUM LAUDE!"
+    elif percentage >= 90.8:
+        grade = "1.25"
+        message = "FLAT UNO NA UNTA AHGHHDFHFGH"
+    elif percentage >= 86.4:
+        grade = "1.50"
+        message = "Sarap! wan-poynt-payb!"
+    elif percentage >= 82:
+        grade = "1.75"
+        message = "Wow college scholar!"
+    elif percentage >= 77.6:
+        grade = "2.00"
+        message = "Dos por dos. So goods!"
+    elif percentage >= 73.2:
+        grade = "2.25"
+        message = "Almost flat dos!"
+    elif percentage >= 68.8:
+        grade = "2.50"
+        message = "Okay lang. Okay nato"
+    elif percentage >= 64.4:
+        grade = "2.75"
+        message = "Yes dili Tres!"
+    elif percentage >= 60:
+        grade = "3.00"
+        message = "Pasado! Amen!"
+    elif percentage >= 55:
+        grade = "4.00"
+        message = "Conditional! Take Removal!"
+    else:
+        grade = "5.00"
+        message = "SINGKO! RETAKE!"
+    
+    return percentage, grade, message
+
 def load_high_score():
     """Load high score from file"""
     global high_score
@@ -436,9 +480,12 @@ def draw_game():
     # Draw player (a simple rectangle)
     pygame.draw.rect(screen, RED, (player_pos[0], player_pos[1], player_size, player_size))
 
-    # Draw score, level and high score
+    # Get percentage only (not grade or message during gameplay)
+    percentage = min(100, (score / 200) * 100)
+    
+    # Draw score, percentage, level and high score
     font = pygame.font.SysFont(None, 36)
-    score_text = font.render(f"Score: {score}  Level: {difficulty_level}", True, WHITE)
+    score_text = font.render(f"Score: {score} ({percentage:.1f}%)  Level: {difficulty_level}", True, WHITE)
     score_rect = score_text.get_rect(center=(SCREEN_WIDTH/2, 30))
     
     high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
@@ -460,27 +507,38 @@ def draw_game_over():
     overlay.fill((0, 0, 0, 128))  # Black with alpha
     screen.blit(overlay, (0, 0))
     
+    # Get grade information
+    percentage, grade, message = get_grade_info(score)
+    
     # Draw game over message
     font_large = pygame.font.SysFont(None, 72)
     font_small = pygame.font.SysFont(None, 36)
     
     game_over_text = font_large.render("GAME OVER", True, WHITE)
-    game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 40))
+    game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 80))
     
-    final_score_text = font_small.render(f"Final Score: {score}", True, WHITE)
-    final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 20))
+    final_score_text = font_small.render(f"Final Score: {score} ({percentage:.1f}%)", True, WHITE)
+    final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 20))
+    
+    grade_text = font_small.render(f"Grade: {grade}", True, WHITE)
+    grade_rect = grade_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 10))
+    
+    message_text = font_small.render(message, True, YELLOW)
+    message_rect = message_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 40))
     
     # Show if high score was achieved
     if score == high_score and score > 0:
         new_high_text = font_small.render("NEW HIGH SCORE!", True, YELLOW)
-        new_high_rect = new_high_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 60))
+        new_high_rect = new_high_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 70))
         screen.blit(new_high_text, new_high_rect)
     
     restart_text = font_small.render("Press 'R' to Return to Start", True, WHITE)
-    restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 100))
+    restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 110))
     
     screen.blit(game_over_text, game_over_rect)
     screen.blit(final_score_text, final_score_rect)
+    screen.blit(grade_text, grade_rect)
+    screen.blit(message_text, message_rect)
     screen.blit(restart_text, restart_rect)
 
 def draw():
