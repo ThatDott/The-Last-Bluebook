@@ -67,6 +67,7 @@ projectile_speed = 4
 last_projectile_time = time.time()
 base_projectile_interval = 1.0  # Base interval (1 projectile per second)
 projectile_interval = base_projectile_interval  # Current interval
+max_angle_deviation = 45  # Maximum angle deviation in degrees (±45° = 90° total range)
 
 # Point object variables
 point_pos = [0, 0]
@@ -81,11 +82,17 @@ class Projectile:
         # Calculate direction vector toward player
         dx = target_x - self.x
         dy = target_y - self.y
-        distance = max(1, math.sqrt(dx*dx + dy*dy))  # Avoid division by zero
-
-        # Normalize the direction vector
-        self.dx = (dx / distance) * projectile_speed
-        self.dy = (dy / distance) * projectile_speed
+        
+        # Calculate the angle to the player
+        base_angle = math.atan2(dy, dx)
+        
+        # Add random deviation within ±max_angle_deviation degrees
+        angle_deviation = math.radians(random.uniform(-max_angle_deviation, max_angle_deviation))
+        final_angle = base_angle + angle_deviation
+        
+        # Calculate new direction vector with the randomized angle
+        self.dx = math.cos(final_angle) * projectile_speed
+        self.dy = math.sin(final_angle) * projectile_speed
 
     def update(self):
         self.x += self.dx
