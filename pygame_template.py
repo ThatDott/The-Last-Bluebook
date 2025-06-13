@@ -21,6 +21,7 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
+PURPLE = (128, 0, 128)
 
 # Create the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -32,6 +33,7 @@ player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]  # Start player away from c
 player_size = 50
 player_speed = 5
 game_over = False
+score = 0
 
 # Projectile variables
 projectiles = []
@@ -39,6 +41,11 @@ projectile_size = 15
 projectile_speed = 4
 last_projectile_time = time.time()
 projectile_interval = 1.0  # 1 projectile per second
+
+# Point object variables
+point_pos = [0, 0]
+point_size = 20
+min_distance_from_center = 150  # Minimum distance from center
 
 class Projectile:
     def __init__(self, target_x, target_y):
@@ -77,33 +84,86 @@ class Projectile:
         # Using player_size/2 as an approximation for player's radius
         return distance < (projectile_size + player_size/2)
 
+def generate_point_position():
+    """Generate a random position for the point object away from the center"""
+    while True:
+        x = random.randint(point_size, SCREEN_WIDTH - point_size)
+        y = random.randint(point_size, SCREEN_HEIGHT - point_size)
+
+        # Check distance from center
+        dx = x - CENTER_X
+        dy = y - CENTER_Y
+        distance = math.sqrt(dx*dx + dy*dy)
+
+        if distance >= min_distance_from_center:
+            return [x, y]
+
+def reset_game():
+    """Reset the game state"""
+    global player_pos, projectiles, game_over, score, last_projectile_time, point_pos
+
+    player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]
+    projectiles = []
+    game_over = False
+    score = 0
+    last_projectile_time = time.time()
+    point_pos = generate_point_position()
+
 def handle_events():
     """Handle user input events"""
-    global player_pos
+    global player_pos, game_over
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return False
 
-    if game_over:
-        return True
+        # Check for restart on game over
+        if game_over and event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                reset_game()
 
-    # Handle continuous key presses
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT]:
-        player_pos[0] -= player_speed
-    if keys[pygame.K_RIGHT]:
-        player_pos[0] += player_speed
-    if keys[pygame.K_UP]:
-        player_pos[1] -= player_speed
-    if keys[pygame.K_DOWN]:
-        player_pos[1] += player_speed
+    if not game_over:
+        # Handle continuous key presses
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            player_pos[0] -= player_speed
+        if keys[pygame.K_RIGHT]:
+            player_pos[0] += player_speed
+        if keys[pygame.K_UP]:
+            player_pos[1] -= player_speed
+        if keys[pygame.K_DOWN]:
+            player_pos[1] += player_speed
 
-    # Keep player on screen
-    player_pos[0] = max(0, min(player_pos[0], SCREEN_WIDTH - player_size))
-    player_pos[1] = max(0, min(player_pos[1], SCREEN_HEIGHT - player_size))
+        # Keep player on screen
+        player_pos[0] = max(0, min(player_pos[0], SCREEN_WIDTH - player_size))
+        player_pos[1] = max(0, min(player_pos[1], SCREEN_HEIGHT - player_size))
 
     return True
+
+def check_point_collision():
+    """Check if player has collected the point"""
+    global score, point_pos
+
+    # Get player center
+    player_center_x = player_pos[0] + player_size/2
+    player_center_y = player_pos[1] + player_size/2
+
+    # Get point center
+    point_center_x = point_pos[0]
+    point_center_y = point_pos[1]
+
+    # Calculate distance
+    dx = player_center_x - point_center_x
+    dy = player_center_y - point_center_y
+    distance = math.sqrt(dx*dx + dy*dy)
+
+    # Check collision (using player_size/2 + point_size as collision radius)
+    if distance < (player_size/2 + point_size):
+        score += 1
+        point_pos = generate_point_position()
+        return True
+
+    return False
 
 def update():
     """Update game state"""
@@ -127,11 +187,13 @@ def update():
             # Check for collision with player
             if projectiles[i].check_collision(player_pos[0], player_pos[1], player_size):
                 game_over = True
-                print("Game Over! You were hit by a projectile.")
             i += 1
         else:
             # Remove projectile if it's out of bounds
             projectiles.pop(i)
+
+    # Check if player collected a point
+    check_point_collision()
 
 def draw():
     """Draw everything to the screen"""
@@ -141,6 +203,9 @@ def draw():
     # Draw center point (source of projectiles)
     pygame.draw.circle(screen, GREEN, (CENTER_X, CENTER_Y), 10)
 
+    # Draw point object
+    pygame.draw.circle(screen, PURPLE, (point_pos[0], point_pos[1]), point_size)
+
     # Draw projectiles
     for projectile in projectiles:
         projectile.draw()
@@ -148,18 +213,40 @@ def draw():
     # Draw player (a simple rectangle)
     pygame.draw.rect(screen, RED, (player_pos[0], player_pos[1], player_size, player_size))
 
-    # Draw game over message
+    # Draw score
+    font = pygame.font.SysFont(None, 36)
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    score_rect = score_text.get_rect(center=(SCREEN_WIDTH/2, 30))
+    screen.blit(score_text, score_rect)
+
+    # Draw game over message and restart instruction
     if game_over:
-        font = pygame.font.SysFont(None, 72)
-        text = font.render("GAME OVER", True, WHITE)
-        text_rect = text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2))
-        screen.blit(text, text_rect)
+        font_large = pygame.font.SysFont(None, 72)
+        font_small = pygame.font.SysFont(None, 36)
+
+        game_over_text = font_large.render("GAME OVER", True, WHITE)
+        game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 40))
+
+        final_score_text = font_small.render(f"Final Score: {score}", True, WHITE)
+        final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 20))
+
+        restart_text = font_small.render("Press 'R' to Restart", True, WHITE)
+        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 70))
+
+        screen.blit(game_over_text, game_over_rect)
+        screen.blit(final_score_text, final_score_rect)
+        screen.blit(restart_text, restart_rect)
 
     # Update the display
     pygame.display.flip()
 
 def main():
     """Main game loop"""
+    global point_pos
+
+    # Initialize point position
+    point_pos = generate_point_position()
+
     running = True
 
     while running:
