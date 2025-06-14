@@ -21,12 +21,12 @@ This game is inspired by the **University exam experience in the Philippines**, 
 
 ## ✨ Features
 
-- 🧠 Dynamic difficulty progression based on score
-- 🎯 Grade-based projectile sprites that evolve as you level up
-- 🌈 Score multiplier system with color-coded feedback
-- 🔊 Sound effects for passing and failing outcomes
-- 🎵 Looping background music (with mute toggle)
-- 💾 High score tracking saved between sessions
+- Dynamic difficulty progression based on score
+- Grade-based projectile sprites that evolve as you level up
+- Score multiplier system with color-coded feedback
+- Sound effects for passing and failing outcomes
+- Looping background music (with mute toggle)
+- High score tracking saved between sessions
 
 ## 🛠 Installation
 
@@ -46,6 +46,7 @@ pip install pygame-ce
 
 # Run the game
 python main.py
+```
 
 ## ⚠️ Disclaimer
 
