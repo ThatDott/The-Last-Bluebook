@@ -598,30 +598,36 @@ def draw_start_screen():
     """Draw the start screen"""
     screen.fill(BLACK)
     
+    # Draw author
+    font_author = pygame.font.SysFont(None, 20)
+    author_text = font_author.render("Developed by: ThatDott", True, WHITE)
+    author_rect = author_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/6 + 4))
+    
     # Draw title
     font_title = pygame.font.SysFont(None, 72)
-    title_text = font_title.render("POV: FINALS EXAM!", True, WHITE)
-    title_rect = title_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/6))
+    title_text = font_title.render("THE LAST BLUEBOOK", True, WHITE)
+    title_rect = title_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/6 - 30))
     
     # Draw context
     font_context = pygame.font.SysFont(None, 28)
     context_text = [
-        "It's finals week and you're facing a dreaded 200-item exam!",
-        "As a desperate test-book, you must collect correct answers (checkmarks)",
-        "while avoiding the wrong answers flying at you from the exam.",
-        "Your grade depends on how many correct answers you can gather.",
-        "Score at least 60% to pass or else Singko!"
+        "Finals week. Last sem. 200-items exam.",
+        "Ikaw ang last bluebook para musalba sa imong grado!.",
+        "Collect correct answers to increase your score.",
+        "Dodge the flying grades — from Singko all the way to Uno!",
+        "The longer you survive, the higher the grades that chase you.",
+        "Reach 60% or more to pass... kung dili, Singko!",
     ]
     
     # Draw instructions
     font_instructions = pygame.font.SysFont(None, 24)
     instructions = [
-        "ARROW KEYS: Move your textbook",
-        "Collect CORRECT ANSWERS for points",
-        "Avoid WRONG ANSWERS from the exam",
-        "Every 5 points increases exam difficulty",
-        "Collect answers quickly for score multipliers",
-        "Press M to mute/unmute music"
+        "ARROW KEYS: Move your bluebook",
+        "Collect CORRECT ANSWERS to increase your score",
+        "Avoid flying GRADES – all can end your exam",
+        "Every 5 points, the exam gets harder!",
+        "Collect answers quickly to boost your multiplier",
+        "Press M to mute/unmute the background music"
     ]
     
     # Draw player and projectile examples with labels
@@ -632,12 +638,12 @@ def draw_start_screen():
     example_projectile = default_projectile_image
     if "5.00" in projectile_images:
         example_projectile = projectile_images["5.00"]  # Start with the worst grade
-    screen.blit(example_projectile, (SCREEN_WIDTH/2 + 310, SCREEN_HEIGHT/2 + 100))
+    screen.blit(example_projectile, (SCREEN_WIDTH/2 + 305, SCREEN_HEIGHT/2 + 118))
     
     label_font = pygame.font.SysFont(None, 20)
     textbook_label = label_font.render("YOU", True, WHITE)
-    correct_label = label_font.render("CORRECT", True, WHITE)
-    wrong_label = label_font.render("WRONG", True, WHITE)
+    correct_label = label_font.render("COLLECT", True, WHITE)
+    wrong_label = label_font.render("AVOID", True, WHITE)
     
     screen.blit(textbook_label, (SCREEN_WIDTH/2 + 100, SCREEN_HEIGHT/2 + 150))
     screen.blit(correct_label, (SCREEN_WIDTH/2 + 200, SCREEN_HEIGHT/2 + 150))
@@ -652,6 +658,7 @@ def draw_start_screen():
     start_rect = start_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 60))
     
     # Render everything
+    screen.blit(author_text, author_rect)
     screen.blit(title_text, title_rect)
     
     # Render context
