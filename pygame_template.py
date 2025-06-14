@@ -28,13 +28,13 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)
+YELLOW = (255, 200, 0)
 PURPLE = (128, 0, 128)
 ORANGE = (255, 165, 0)
 
 # Create the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Projectile Dodge Game")
+pygame.display.set_caption("POV: FINALS EXAM!")
 clock = pygame.time.Clock()
 
 # Create directories if they don't exist
@@ -102,7 +102,7 @@ generator_image = pygame.transform.scale(generator_image, (generator_size, gener
 projectile_size = 15
 projectile_image = pygame.transform.scale(projectile_image, (projectile_size*2, projectile_size*2))
 
-point_size = 20
+point_size = 15
 point_image = pygame.transform.scale(point_image, (point_size*2, point_size*2))
 
 # Create sound files if they don't exist
@@ -239,7 +239,7 @@ def get_grade_info(score):
     
     if percentage > 100:
         grade = "1.00"
-        message = "SUMMA SOBRA NA ANG SCORE!"
+        message = "SUMMA-SOBRA NA SA TOTAL! WOWOWOW!"
     elif percentage >= 95.2:
         grade = "1.00"
         message = "HALIMAW! SUMMA CUM LAUDE!"
@@ -508,44 +508,74 @@ def draw_start_screen():
     
     # Draw title
     font_title = pygame.font.SysFont(None, 72)
-    title_text = font_title.render("PROJECTILE DODGE", True, WHITE)
-    title_rect = title_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/4))
+    title_text = font_title.render("POV: FINALS EXAM!", True, WHITE)
+    title_rect = title_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/6))
     
-    # Draw instructions
-    font_instructions = pygame.font.SysFont(None, 36)
-    instructions = [
-        "Use ARROW KEYS to move",
-        "Collect CHECKMARKS to score",
-        "Avoid CROSS projectiles",
-        "Every 5 points increases difficulty",
-        "Collect points quickly for score multipliers",
-        "",
-        "Move to start the game"
+    # Draw context
+    font_context = pygame.font.SysFont(None, 28)
+    context_text = [
+        "It's finals week and you're facing a dreaded 200-item exam!",
+        "As a desperate test-book, you must collect correct answers (checkmarks)",
+        "while avoiding the wrong answers flying at you from the exam.",
+        "Your grade depends on how many correct answers you can gather.",
+        "Score at least 60% to pass or else Singko!"
     ]
     
-    # Draw player and projectile examples
-    screen.blit(player_image, (SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 + 80))
-    screen.blit(projectile_image, (SCREEN_WIDTH/2 - projectile_size, SCREEN_HEIGHT/2 + 100 - projectile_size))
-    screen.blit(point_image, (SCREEN_WIDTH/2 + 100 - point_size, SCREEN_HEIGHT/2 + 100 - point_size))
+    # Draw instructions
+    font_instructions = pygame.font.SysFont(None, 24)
+    instructions = [
+        "ARROW KEYS: Move your textbook",
+        "Collect CORRECT ANSWERS for points",
+        "Avoid WRONG ANSWERS from the exam",
+        "Every 5 points increases exam difficulty",
+        "Collect answers quickly for score multipliers"
+    ]
+    
+    # Draw player and projectile examples with labels
+    screen.blit(player_image, (SCREEN_WIDTH/2 + 98, SCREEN_HEIGHT/2 + 90))
+    screen.blit(point_image, (SCREEN_WIDTH/2 + 215, SCREEN_HEIGHT/2 + 100))
+    screen.blit(projectile_image, (SCREEN_WIDTH/2 + 310, SCREEN_HEIGHT/2 + 100))
+    
+    label_font = pygame.font.SysFont(None, 20)
+    textbook_label = label_font.render("YOU", True, WHITE)
+    correct_label = label_font.render("CORRECT", True, WHITE)
+    wrong_label = label_font.render("WRONG", True, WHITE)
+    
+    screen.blit(textbook_label, (SCREEN_WIDTH/2 + 100, SCREEN_HEIGHT/2 + 150))
+    screen.blit(correct_label, (SCREEN_WIDTH/2 + 200, SCREEN_HEIGHT/2 + 150))
+    screen.blit(wrong_label, (SCREEN_WIDTH/2 + 300, SCREEN_HEIGHT/2 + 150))
     
     # Draw high score
-    high_score_text = font_instructions.render(f"High Score: {high_score}", True, WHITE)
-    high_score_rect = high_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 50))
+    high_score_text = font_instructions.render(f"Best Score: {high_score}", True, WHITE)
+    high_score_rect = high_score_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 30))
+    
+    # Draw start instruction
+    start_text = font_instructions.render("Move to start the exam!", True, YELLOW)
+    start_rect = start_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 60))
     
     # Render everything
     screen.blit(title_text, title_rect)
+    
+    # Render context
+    for i, line in enumerate(context_text):
+        context_line = font_context.render(line, True, WHITE)
+        context_rect = context_line.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/4 + i * 30))
+        screen.blit(context_line, context_rect)
+    
+    # Render instructions
     for i, line in enumerate(instructions):
         instruction_text = font_instructions.render(line, True, WHITE)
-        instruction_rect = instruction_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 50 + i * 30))
+        instruction_rect = instruction_text.get_rect(left=50, top=SCREEN_HEIGHT/2 + 60 + i * 25)
         screen.blit(instruction_text, instruction_rect)
     
     screen.blit(high_score_text, high_score_rect)
+    screen.blit(start_text, start_rect)
 
 def draw_multiplier_bar():
     """Draw the multiplier timer bar and current multiplier"""
     # Always draw multiplier text, even at 1x
     font = pygame.font.SysFont(None, 36)
-    multiplier_text = font.render(f"{score_multiplier}x", True, ORANGE)
+    multiplier_text = font.render(f"{score_multiplier}x", True, YELLOW)
     multiplier_rect = multiplier_text.get_rect(topleft=(20, 20))
     screen.blit(multiplier_text, multiplier_rect)
     
@@ -560,7 +590,7 @@ def draw_multiplier_bar():
     if score_multiplier > 1:
         fill_width = int((multiplier_timer / multiplier_duration) * bar_width)
         if fill_width > 0:
-            pygame.draw.rect(screen, ORANGE, (bar_x, bar_y, fill_width, bar_height))
+            pygame.draw.rect(screen, YELLOW, (bar_x, bar_y, fill_width, bar_height))
 
 def draw_game():
     """Draw the game screen"""
