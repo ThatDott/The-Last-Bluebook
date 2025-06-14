@@ -1,0 +1,11 @@
+# Build artifacts
+build/
+dist/
+*.spec
+POVFinals
+
+# Local data
+highscore.json
+__pycache__/
+*.pyc
+
