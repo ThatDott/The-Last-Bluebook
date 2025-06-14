@@ -235,7 +235,7 @@ all_sprites.add(point)
 def get_grade_info(score):
     """Get grade and message based on score percentage"""
     max_score = 200
-    percentage = min(100, (score / max_score) * 100)
+    percentage = (score / max_score) * 100
     
     if percentage > 100:
         grade = "1.00"
