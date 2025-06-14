@@ -115,6 +115,15 @@ try:
     level_up_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "level_up.wav"))
     # Projectile launch sound
     projectile_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "projectile.wav"))
+    
+    # Background music
+    background_music_path = os.path.join(sounds_dir, "background_music.mp3")
+    if os.path.exists(background_music_path):
+        pygame.mixer.music.load(background_music_path)
+        pygame.mixer.music.set_volume(0.5)  # Set volume to 50%
+        pygame.mixer.music.play(-1)  # -1 means loop indefinitely
+    else:
+        print("Background music file not found. Please add it to the sounds directory.")
 except Exception as e:
     print(f"Error loading sound files: {e}")
     # Create silent sounds as fallback
@@ -365,6 +374,10 @@ def start_game():
     
     score_multiplier = 1
     last_point_time = time.time()
+    
+    # Restart background music if it's not playing
+    if not pygame.mixer.music.get_busy():
+        pygame.mixer.music.play(-1)
 
 def reset_game():
     """Reset the game state after game over"""
@@ -392,6 +405,13 @@ def handle_events():
         if game_state == STATE_GAME_OVER and event.type == pygame.KEYDOWN:
             if event.key == pygame.K_r:
                 reset_game()
+        
+        # Music controls - M key to mute/unmute
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+            if pygame.mixer.music.get_volume() > 0:
+                pygame.mixer.music.set_volume(0)  # Mute
+            else:
+                pygame.mixer.music.set_volume(0.5)  # Unmute to 50%
     
     # Handle continuous key presses
     keys = pygame.key.get_pressed()
@@ -528,7 +548,8 @@ def draw_start_screen():
         "Collect CORRECT ANSWERS for points",
         "Avoid WRONG ANSWERS from the exam",
         "Every 5 points increases exam difficulty",
-        "Collect answers quickly for score multipliers"
+        "Collect answers quickly for score multipliers",
+        "Press M to mute/unmute music"
     ]
     
     # Draw player and projectile examples with labels
@@ -701,6 +722,7 @@ def main():
         clock.tick(FPS)
     
     # Clean up
+    pygame.mixer.music.stop()  # Stop music before quitting
     pygame.quit()
     sys.exit()
 
