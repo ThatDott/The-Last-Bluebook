@@ -4,6 +4,8 @@
 
 This game is inspired by the **University exam experience in the Philippines**, complete with **Pinoy meme sound effects** and grade-based tension!
 
+> This game is an official entry for the **Amazon Q Challenge**, and was developed alongside **Amazon Q** for code generation, feature assistance, and implementation.
+
 ---
 
 ## 🎮 Gameplay
@@ -44,3 +46,12 @@ pip install pygame-ce
 
 # Run the game
 python main.py
+
+## ⚠️ Disclaimer
+
+This game features background music from **“Bagsakan” by Parokya ni Edgar**, along with sound effects sampled from various **Filipino social media memes**.
+
+All rights to the song “Bagsakan” belong to **Parokya ni Edgar** and **Universal Records Philippines**.
+
+**The Last Bluebook** is a **non-commercial personal project**, created purely for **educational, parody, and entertainment purposes**.  
+No copyright infringement is intended.
