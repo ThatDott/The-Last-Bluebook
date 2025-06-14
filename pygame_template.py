@@ -37,11 +37,75 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Projectile Dodge Game")
 clock = pygame.time.Clock()
 
-# Create sounds directory if it doesn't exist
+# Create directories if they don't exist
 sounds_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sounds")
+images_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
 os.makedirs(sounds_dir, exist_ok=True)
+os.makedirs(images_dir, exist_ok=True)
 
-# Load sound files
+# Load images or use defaults
+try:
+    # Try to load player image
+    player_image_path = os.path.join(images_dir, "player.png")
+    if os.path.exists(player_image_path):
+        player_image = pygame.image.load(player_image_path).convert()
+    else:
+        player_image = pygame.Surface((50, 50))
+        player_image.fill(RED)
+    
+    # Try to load generator image
+    generator_image_path = os.path.join(images_dir, "generator.png")
+    if os.path.exists(generator_image_path):
+        generator_image = pygame.image.load(generator_image_path).convert_alpha()
+    else:
+        generator_image = pygame.Surface((20, 20))
+        generator_image.fill(GREEN)
+    
+    # Try to load projectile image
+    projectile_image_path = os.path.join(images_dir, "projectile.png")
+    if os.path.exists(projectile_image_path):
+        projectile_image = pygame.image.load(projectile_image_path).convert_alpha()
+    else:
+        projectile_image = pygame.Surface((30, 30), pygame.SRCALPHA)
+        pygame.draw.circle(projectile_image, YELLOW, (15, 15), 15)
+    
+    # Try to load point image
+    point_image_path = os.path.join(images_dir, "point.png")
+    if os.path.exists(point_image_path):
+        point_image = pygame.image.load(point_image_path).convert_alpha()
+    else:
+        point_image = pygame.Surface((40, 40), pygame.SRCALPHA)
+        pygame.draw.circle(point_image, PURPLE, (20, 20), 20)
+        
+except Exception as e:
+    print(f"Error loading images: {e}")
+    # Create default images if loading fails
+    player_image = pygame.Surface((50, 50))
+    player_image.fill(RED)
+    
+    generator_image = pygame.Surface((20, 20))
+    generator_image.fill(GREEN)
+    
+    projectile_image = pygame.Surface((30, 30), pygame.SRCALPHA)
+    pygame.draw.circle(projectile_image, YELLOW, (15, 15), 15)
+    
+    point_image = pygame.Surface((40, 40), pygame.SRCALPHA)
+    pygame.draw.circle(point_image, PURPLE, (20, 20), 20)
+
+# Resize images to match the original sizes
+player_size = 50
+player_image = pygame.transform.scale(player_image, (0.67 * player_size, player_size))
+
+generator_size = 50
+generator_image = pygame.transform.scale(generator_image, (generator_size, generator_size))
+
+projectile_size = 15
+projectile_image = pygame.transform.scale(projectile_image, (projectile_size*2, projectile_size*2))
+
+point_size = 20
+point_image = pygame.transform.scale(point_image, (point_size*2, point_size*2))
+
+# Create sound files if they don't exist
 try:
     # Game over sound
     game_over_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over.wav"))
@@ -61,7 +125,6 @@ except Exception as e:
 
 # Game variables
 player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]  # Start player away from center
-player_size = 50
 player_speed = 5
 game_state = STATE_START_SCREEN
 score = 0
@@ -80,7 +143,6 @@ highscore_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "highs
 
 # Projectile variables
 projectiles = []
-projectile_size = 15
 projectile_speed = 4
 last_projectile_time = time.time()
 base_projectile_interval = 1.0  # Base interval (1 projectile per second)
@@ -89,14 +151,35 @@ max_angle_deviation = 60  # Maximum angle deviation in degrees (±60° = 120° t
 
 # Point object variables
 point_pos = [0, 0]
-point_size = 20
 min_distance_from_center = 150  # Minimum distance from center
 
-class Projectile:
+# Sprite classes
+class Player(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = player_image
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+    
+    def update(self, x, y):
+        self.rect.topleft = (x, y)
+
+class Generator(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = generator_image
+        self.rect = self.image.get_rect()
+        self.rect.center = (CENTER_X, CENTER_Y)
+
+class Projectile(pygame.sprite.Sprite):
     def __init__(self, target_x, target_y):
+        super().__init__()
+        self.image = projectile_image
+        self.rect = self.image.get_rect()
+        self.rect.center = (CENTER_X, CENTER_Y)
         self.x = CENTER_X
         self.y = CENTER_Y
-
+        
         # Calculate direction vector toward player
         dx = target_x - self.x
         dy = target_y - self.y
@@ -111,29 +194,43 @@ class Projectile:
         # Calculate new direction vector with the randomized angle
         self.dx = math.cos(final_angle) * projectile_speed
         self.dy = math.sin(final_angle) * projectile_speed
-
+    
     def update(self):
         self.x += self.dx
         self.y += self.dy
-
+        self.rect.center = (self.x, self.y)
+        
         # Check if projectile is out of bounds
         if (self.x < -projectile_size or self.x > SCREEN_WIDTH + projectile_size or
             self.y < -projectile_size or self.y > SCREEN_HEIGHT + projectile_size):
             return False  # Remove this projectile
         return True
+    
+    def check_collision(self, player_rect):
+        # Use pygame's built-in collision detection
+        return self.rect.colliderect(player_rect)
 
-    def draw(self):
-        pygame.draw.circle(screen, YELLOW, (int(self.x), int(self.y)), projectile_size)
+class Point(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = point_image
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+    
+    def update(self, x, y):
+        self.rect.center = (x, y)
 
-    def check_collision(self, player_x, player_y, player_size):
-        # Simple collision detection using distance between centers
-        dx = self.x - (player_x + player_size/2)
-        dy = self.y - (player_y + player_size/2)
-        distance = math.sqrt(dx*dx + dy*dy)
+# Create sprite instances
+player = Player(player_pos[0], player_pos[1])
+generator = Generator()
+point = Point(0, 0)  # Will be positioned later
 
-        # If the distance is less than the sum of radii, collision occurred
-        # Using player_size/2 as an approximation for player's radius
-        return distance < (projectile_size + player_size/2)
+# Sprite groups
+all_sprites = pygame.sprite.Group()
+projectile_sprites = pygame.sprite.Group()
+all_sprites.add(generator)
+all_sprites.add(player)
+all_sprites.add(point)
 
 def get_grade_info(score):
     """Get grade and message based on score percentage"""
@@ -247,15 +344,25 @@ def start_game():
     """Start a new game"""
     global player_pos, projectiles, game_state, score, last_projectile_time, point_pos
     global difficulty_level, projectile_interval, score_multiplier, last_point_time
+    global projectile_sprites
 
     player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]
+    player.update(player_pos[0], player_pos[1])
+    
+    # Clear projectiles
     projectiles = []
+    projectile_sprites.empty()
+    
     game_state = STATE_PLAYING
     score = 0
     difficulty_level = 1
     projectile_interval = base_projectile_interval
     last_projectile_time = time.time()
+    
+    # Generate new point position
     point_pos = generate_point_position()
+    point.update(point_pos[0], point_pos[1])
+    
     score_multiplier = 1
     last_point_time = time.time()
 
@@ -311,6 +418,9 @@ def handle_events():
         # Keep player on screen
         player_pos[0] = max(0, min(player_pos[0], SCREEN_WIDTH - player_size))
         player_pos[1] = max(0, min(player_pos[1], SCREEN_HEIGHT - player_size))
+        
+        # Update player sprite position
+        player.update(player_pos[0], player_pos[1])
     
     return True
 
@@ -318,21 +428,8 @@ def check_point_collision():
     """Check if player has collected the point"""
     global score, point_pos, score_multiplier, last_point_time
     
-    # Get player center
-    player_center_x = player_pos[0] + player_size/2
-    player_center_y = player_pos[1] + player_size/2
-    
-    # Get point center
-    point_center_x = point_pos[0]
-    point_center_y = point_pos[1]
-    
-    # Calculate distance
-    dx = player_center_x - point_center_x
-    dy = player_center_y - point_center_y
-    distance = math.sqrt(dx*dx + dy*dy)
-    
-    # Check collision (using player_size/2 + point_size as collision radius)
-    if distance < (player_size/2 + point_size):
+    # Use sprite collision detection
+    if player.rect.colliderect(point.rect):
         current_time = time.time()
         
         # Check if this point was collected within the multiplier time window
@@ -343,14 +440,15 @@ def check_point_collision():
             # Reset multiplier if too much time has passed
             score_multiplier = 1
         
-        # Add score with multiplier
-        score += 1 * score_multiplier
+        # Add score with multiplier (score_multiplier points per collection)
+        score += score_multiplier
         
         # Update last point time
         last_point_time = current_time
         
         # Generate new point
         point_pos = generate_point_position()
+        point.update(point_pos[0], point_pos[1])
         point_sound.play()  # Play point sound
         
         # Check if difficulty should increase
@@ -361,7 +459,7 @@ def check_point_collision():
 
 def update():
     """Update game state"""
-    global projectiles, last_projectile_time, game_state
+    global projectiles, last_projectile_time, game_state, projectile_sprites
     
     if game_state != STATE_PLAYING:
         return
@@ -375,6 +473,7 @@ def update():
         # Create a new projectile aimed at the player's current position
         new_projectile = Projectile(player_pos[0] + player_size/2, player_pos[1] + player_size/2)
         projectiles.append(new_projectile)
+        projectile_sprites.add(new_projectile)
         last_projectile_time = current_time
         
         # Play projectile launch sound
@@ -385,7 +484,7 @@ def update():
     while i < len(projectiles):
         if projectiles[i].update():
             # Check for collision with player
-            if projectiles[i].check_collision(player_pos[0], player_pos[1], player_size):
+            if projectiles[i].check_collision(player.rect):
                 game_state = STATE_GAME_OVER
                 game_over_sound.play()  # Play game over sound
                 
@@ -397,6 +496,7 @@ def update():
             i += 1
         else:
             # Remove projectile if it's out of bounds
+            projectile_sprites.remove(projectiles[i])
             projectiles.pop(i)
 
     # Check if player collected a point
@@ -415,8 +515,8 @@ def draw_start_screen():
     font_instructions = pygame.font.SysFont(None, 36)
     instructions = [
         "Use ARROW KEYS to move",
-        "Collect PURPLE points to score",
-        "Avoid YELLOW projectiles",
+        "Collect CHECKMARKS to score",
+        "Avoid CROSS projectiles",
         "Every 5 points increases difficulty",
         "Collect points quickly for score multipliers",
         "",
@@ -424,9 +524,9 @@ def draw_start_screen():
     ]
     
     # Draw player and projectile examples
-    pygame.draw.rect(screen, RED, (SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 + 80, player_size, player_size))
-    pygame.draw.circle(screen, YELLOW, (int(SCREEN_WIDTH/2), int(SCREEN_HEIGHT/2 + 100)), projectile_size)
-    pygame.draw.circle(screen, PURPLE, (int(SCREEN_WIDTH/2 + 100), int(SCREEN_HEIGHT/2 + 100)), point_size)
+    screen.blit(player_image, (SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 + 80))
+    screen.blit(projectile_image, (SCREEN_WIDTH/2 - projectile_size, SCREEN_HEIGHT/2 + 100 - projectile_size))
+    screen.blit(point_image, (SCREEN_WIDTH/2 + 100 - point_size, SCREEN_HEIGHT/2 + 100 - point_size))
     
     # Draw high score
     high_score_text = font_instructions.render(f"High Score: {high_score}", True, WHITE)
@@ -443,21 +543,21 @@ def draw_start_screen():
 
 def draw_multiplier_bar():
     """Draw the multiplier timer bar and current multiplier"""
+    # Always draw multiplier text, even at 1x
+    font = pygame.font.SysFont(None, 36)
+    multiplier_text = font.render(f"{score_multiplier}x", True, ORANGE)
+    multiplier_rect = multiplier_text.get_rect(topleft=(20, 20))
+    screen.blit(multiplier_text, multiplier_rect)
+    
+    # Draw timer bar background
+    bar_width = 150
+    bar_height = 15
+    bar_x = 60
+    bar_y = 30
+    pygame.draw.rect(screen, WHITE, (bar_x, bar_y, bar_width, bar_height), 1)
+    
+    # Draw timer bar fill only if multiplier > 1
     if score_multiplier > 1:
-        # Draw multiplier text
-        font = pygame.font.SysFont(None, 36)
-        multiplier_text = font.render(f"{score_multiplier}x", True, ORANGE)
-        multiplier_rect = multiplier_text.get_rect(topleft=(20, 20))
-        screen.blit(multiplier_text, multiplier_rect)
-        
-        # Draw timer bar background
-        bar_width = 150
-        bar_height = 15
-        bar_x = 60
-        bar_y = 30
-        pygame.draw.rect(screen, WHITE, (bar_x, bar_y, bar_width, bar_height), 1)
-        
-        # Draw timer bar fill
         fill_width = int((multiplier_timer / multiplier_duration) * bar_width)
         if fill_width > 0:
             pygame.draw.rect(screen, ORANGE, (bar_x, bar_y, fill_width, bar_height))
@@ -467,18 +567,9 @@ def draw_game():
     # Clear the screen
     screen.fill(BLACK)
 
-    # Draw center point (source of projectiles)
-    pygame.draw.circle(screen, GREEN, (CENTER_X, CENTER_Y), 10)
-
-    # Draw point object
-    pygame.draw.circle(screen, PURPLE, (point_pos[0], point_pos[1]), point_size)
-
-    # Draw projectiles
-    for projectile in projectiles:
-        projectile.draw()
-
-    # Draw player (a simple rectangle)
-    pygame.draw.rect(screen, RED, (player_pos[0], player_pos[1], player_size, player_size))
+    # Draw all sprites
+    all_sprites.draw(screen)
+    projectile_sprites.draw(screen)
 
     # Get percentage only (not grade or message during gameplay)
     percentage = min(100, (score / 200) * 100)
@@ -562,6 +653,7 @@ def main():
     
     # Initialize point position
     point_pos = generate_point_position()
+    point.update(point_pos[0], point_pos[1])
 
     running = True
     
