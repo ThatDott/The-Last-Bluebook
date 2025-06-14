@@ -123,14 +123,19 @@ point_image = pygame.transform.scale(point_image, (point_size*2, point_size*2))
 
 # Create sound files if they don't exist
 try:
-    # Game over sound
-    game_over_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over.mp3"))
+    # Game over sounds - just two variants
+    game_over_fail_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over_fail.mp3"))  # For 5.00 and 4.00
+    game_over_pass_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over_pass.mp3"))  # For 3.00 and better
+    
+    # Fallback game over sound
+    fallback_game_over_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over.wav"))
+    
     # Point gain sound
-    point_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "point.wav"))
+    point_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "point.mp3"))
     # Level up sound
     level_up_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "level_up.mp3"))
     # Projectile launch sound
-    projectile_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "projectile.wav"))
+    projectile_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "projectile.mp3"))
     
     # Background music
     background_music_path = os.path.join(sounds_dir, "background_music.mp3")
@@ -143,7 +148,9 @@ try:
 except Exception as e:
     print(f"Error loading sound files: {e}")
     # Create silent sounds as fallback
-    game_over_sound = pygame.mixer.Sound(buffer=bytes([0]))
+    fallback_game_over_sound = pygame.mixer.Sound(buffer=bytes([0]))
+    game_over_fail_sound = pygame.mixer.Sound(buffer=bytes([0]))
+    game_over_pass_sound = pygame.mixer.Sound(buffer=bytes([0]))
     point_sound = pygame.mixer.Sound(buffer=bytes([0]))
     level_up_sound = pygame.mixer.Sound(buffer=bytes([0]))
     projectile_sound = pygame.mixer.Sound(buffer=bytes([0]))
@@ -557,7 +564,21 @@ def update():
             # Check for collision with player
             if projectiles[i].check_collision(player.rect):
                 game_state = STATE_GAME_OVER
-                game_over_sound.play()  # Play game over sound
+                
+                # Play appropriate game over sound based on score/grade
+                percentage = min(100, (score / 200) * 100)
+                
+                # Just two sound effects - one for failing grades, one for passing grades
+                if percentage >= 60:  # 3.00 and better (passing)
+                    try:
+                        game_over_pass_sound.play()
+                    except:
+                        fallback_game_over_sound.play()
+                else:  # 4.00 and 5.00 (failing or conditional)
+                    try:
+                        game_over_fail_sound.play()
+                    except:
+                        fallback_game_over_sound.play()
                 
                 # Update high score if needed
                 global high_score
@@ -650,9 +671,21 @@ def draw_start_screen():
 
 def draw_multiplier_bar():
     """Draw the multiplier timer bar and current multiplier"""
-    # Always draw multiplier text, even at 1x
+    # Get multiplier color based on level
+    if score_multiplier == 1:
+        multiplier_color = WHITE  # Lowest multiplier (1x)
+    elif score_multiplier == 2:
+        multiplier_color = GREEN  # 2x multiplier
+    elif score_multiplier == 3:
+        multiplier_color = BLUE   # 3x multiplier
+    elif score_multiplier == 4:
+        multiplier_color = ORANGE # 4x multiplier
+    else:
+        multiplier_color = PURPLE # Highest multiplier (5x)
+    
+    # Always draw multiplier text with color based on level
     font = pygame.font.SysFont(None, 36)
-    multiplier_text = font.render(f"{score_multiplier}x", True, YELLOW)
+    multiplier_text = font.render(f"{score_multiplier}x", True, multiplier_color)
     multiplier_rect = multiplier_text.get_rect(topleft=(20, 20))
     screen.blit(multiplier_text, multiplier_rect)
     
@@ -667,7 +700,7 @@ def draw_multiplier_bar():
     if score_multiplier > 1:
         fill_width = int((multiplier_timer / multiplier_duration) * bar_width)
         if fill_width > 0:
-            pygame.draw.rect(screen, YELLOW, (bar_x, bar_y, fill_width, bar_height))
+            pygame.draw.rect(screen, multiplier_color, (bar_x, bar_y, fill_width, bar_height))
 
 def draw_game():
     """Draw the game screen"""
