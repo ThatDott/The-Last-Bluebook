@@ -61,13 +61,23 @@ try:
         generator_image = pygame.Surface((20, 20))
         generator_image.fill(GREEN)
     
-    # Try to load projectile image
+    # Try to load projectile images for different grades
+    projectile_images = {}
+    grade_levels = ["1.00", "1.25", "1.50", "1.75", "2.00", "2.25", "2.50", "2.75", "3.00", "4.00", "5.00"]
+    
+    # Load all grade-specific projectile images if they exist
+    for grade in grade_levels:
+        grade_image_path = os.path.join(images_dir, f"projectile_{grade}.png")
+        if os.path.exists(grade_image_path):
+            projectile_images[grade] = pygame.image.load(grade_image_path).convert_alpha()
+    
+    # Default projectile image if no grade-specific images are found
     projectile_image_path = os.path.join(images_dir, "projectile.png")
     if os.path.exists(projectile_image_path):
-        projectile_image = pygame.image.load(projectile_image_path).convert_alpha()
+        default_projectile_image = pygame.image.load(projectile_image_path).convert_alpha()
     else:
-        projectile_image = pygame.Surface((30, 30), pygame.SRCALPHA)
-        pygame.draw.circle(projectile_image, YELLOW, (15, 15), 15)
+        default_projectile_image = pygame.Surface((30, 30), pygame.SRCALPHA)
+        pygame.draw.circle(default_projectile_image, YELLOW, (15, 15), 15)
     
     # Try to load point image
     point_image_path = os.path.join(images_dir, "point.png")
@@ -86,8 +96,10 @@ except Exception as e:
     generator_image = pygame.Surface((20, 20))
     generator_image.fill(GREEN)
     
-    projectile_image = pygame.Surface((30, 30), pygame.SRCALPHA)
-    pygame.draw.circle(projectile_image, YELLOW, (15, 15), 15)
+    default_projectile_image = pygame.Surface((30, 30), pygame.SRCALPHA)
+    pygame.draw.circle(default_projectile_image, YELLOW, (15, 15), 15)
+    
+    projectile_images = {}  # Empty dictionary for grade-specific projectiles
     
     point_image = pygame.Surface((40, 40), pygame.SRCALPHA)
     pygame.draw.circle(point_image, PURPLE, (20, 20), 20)
@@ -100,7 +112,11 @@ generator_size = 50
 generator_image = pygame.transform.scale(generator_image, (generator_size, generator_size))
 
 projectile_size = 15
-projectile_image = pygame.transform.scale(projectile_image, (projectile_size*2, projectile_size*2))
+# Resize all projectile images
+if projectile_images:
+    for grade in projectile_images:
+        projectile_images[grade] = pygame.transform.scale(projectile_images[grade], (projectile_size*2, projectile_size*2*0.4))
+default_projectile_image = pygame.transform.scale(default_projectile_image, (projectile_size*2, projectile_size*2))
 
 point_size = 15
 point_image = pygame.transform.scale(point_image, (point_size*2, point_size*2))
@@ -108,11 +124,11 @@ point_image = pygame.transform.scale(point_image, (point_size*2, point_size*2))
 # Create sound files if they don't exist
 try:
     # Game over sound
-    game_over_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over.wav"))
+    game_over_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "game_over.mp3"))
     # Point gain sound
     point_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "point.wav"))
     # Level up sound
-    level_up_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "level_up.wav"))
+    level_up_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "level_up.mp3"))
     # Projectile launch sound
     projectile_sound = pygame.mixer.Sound(os.path.join(sounds_dir, "projectile.wav"))
     
@@ -183,7 +199,9 @@ class Generator(pygame.sprite.Sprite):
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, target_x, target_y):
         super().__init__()
-        self.image = projectile_image
+        
+        # Determine which projectile image to use based on current difficulty level
+        self.image = self.get_projectile_image_for_level(difficulty_level)
         self.rect = self.image.get_rect()
         self.rect.center = (CENTER_X, CENTER_Y)
         self.x = CENTER_X
@@ -203,6 +221,39 @@ class Projectile(pygame.sprite.Sprite):
         # Calculate new direction vector with the randomized angle
         self.dx = math.cos(final_angle) * projectile_speed
         self.dy = math.sin(final_angle) * projectile_speed
+    
+    def get_projectile_image_for_level(self, level):
+        """Get the appropriate projectile image based on the current difficulty level"""
+        # Convert level to grade
+        percentage = min(100, ((level - 1) * 5 / 200) * 100)
+        
+        if percentage >= 95.2:
+            grade = "1.00"
+        elif percentage >= 90.8:
+            grade = "1.25"
+        elif percentage >= 86.4:
+            grade = "1.50"
+        elif percentage >= 82:
+            grade = "1.75"
+        elif percentage >= 77.6:
+            grade = "2.00"
+        elif percentage >= 73.2:
+            grade = "2.25"
+        elif percentage >= 68.8:
+            grade = "2.50"
+        elif percentage >= 64.4:
+            grade = "2.75"
+        elif percentage >= 60:
+            grade = "3.00"
+        elif percentage >= 55:
+            grade = "4.00"
+        else:
+            grade = "5.00"
+        
+        # Return the appropriate image if it exists, otherwise use default
+        if grade in projectile_images:
+            return projectile_images[grade]
+        return default_projectile_image
     
     def update(self):
         self.x += self.dx
@@ -555,7 +606,12 @@ def draw_start_screen():
     # Draw player and projectile examples with labels
     screen.blit(player_image, (SCREEN_WIDTH/2 + 98, SCREEN_HEIGHT/2 + 90))
     screen.blit(point_image, (SCREEN_WIDTH/2 + 215, SCREEN_HEIGHT/2 + 100))
-    screen.blit(projectile_image, (SCREEN_WIDTH/2 + 310, SCREEN_HEIGHT/2 + 100))
+    
+    # Use the appropriate projectile image for the example
+    example_projectile = default_projectile_image
+    if "5.00" in projectile_images:
+        example_projectile = projectile_images["5.00"]  # Start with the worst grade
+    screen.blit(example_projectile, (SCREEN_WIDTH/2 + 310, SCREEN_HEIGHT/2 + 100))
     
     label_font = pygame.font.SysFont(None, 20)
     textbook_label = label_font.render("YOU", True, WHITE)
