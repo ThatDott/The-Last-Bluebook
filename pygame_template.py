@@ -300,7 +300,7 @@ def generate_point_position():
     """Generate a random position for the point object away from the center"""
     while True:
         x = random.randint(point_size, SCREEN_WIDTH - point_size)
-        y = random.randint(point_size, SCREEN_HEIGHT - point_size)
+        y = random.randint(point_size + 30, SCREEN_HEIGHT - point_size)
 
         # Check distance from center
         dx = x - CENTER_X
