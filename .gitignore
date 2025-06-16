@@ -9,3 +9,6 @@ highscore.json
 __pycache__/
 *.pyc
 
+# Metadata or intermediate files
+file_version_info.txt
+
