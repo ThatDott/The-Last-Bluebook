@@ -31,6 +31,8 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 200, 0)
 PURPLE = (128, 0, 128)
 ORANGE = (255, 165, 0)
+CYAN = (0, 255, 255)
+MAGENTA = (255, 0, 255)
 
 # Create the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -185,17 +187,165 @@ max_angle_deviation = 60  # Maximum angle deviation in degrees (±60° = 120° t
 point_pos = [0, 0]
 min_distance_from_center = 150  # Minimum distance from center
 
+# Particle system variables
+particle_colors = {
+    1: WHITE,      # 1x multiplier
+    2: GREEN,      # 2x multiplier
+    3: BLUE,       # 3x multiplier
+    4: ORANGE,     # 4x multiplier
+    5: PURPLE      # 5x multiplier
+}
+particles = []
+max_particles = 40  # Maximum number of particles to display at once
+
 # Sprite classes
+class ScorePopup:
+    def __init__(self, x, y, value, color):
+        self.x = x
+        self.y = y
+        self.value = value
+        self.color = color
+        self.creation_time = time.time()
+        self.lifetime = 1.5  # Lifetime in seconds
+        self.alpha = 255     # Start fully opaque
+        self.scale = 1.0     # Start at normal size
+        self.y_offset = 0    # For upward movement
+    
+    def update(self):
+        # Calculate elapsed time
+        elapsed = time.time() - self.creation_time
+        remaining_life = max(0, 1 - (elapsed / self.lifetime))
+        
+        # Update alpha (fade out)
+        self.alpha = int(255 * remaining_life)
+        
+        # Update scale (grow slightly then shrink)
+        if elapsed < 0.3:
+            # Grow to 1.5x in the first 0.3 seconds
+            self.scale = 1.0 + (0.5 * (elapsed / 0.3))
+        else:
+            # Shrink back to 1.0x over the remaining time
+            self.scale = 1.5 - (0.5 * ((elapsed - 0.3) / (self.lifetime - 0.3)))
+        
+        # Move upward
+        self.y_offset = -40 * (elapsed / self.lifetime)
+        
+        # Return True if still alive
+        return elapsed < self.lifetime
+    
+    def draw(self, surface):
+        # Create a font with the current scale
+        base_size = 28
+        font = pygame.font.SysFont(None, int(base_size * self.scale))
+        
+        # Render the text with the current alpha
+        text = f"+{self.value}"
+        text_surface = font.render(text, True, self.color)
+        
+        # Create a surface with per-pixel alpha
+        alpha_surface = pygame.Surface(text_surface.get_size(), pygame.SRCALPHA)
+        
+        # Fill with transparent color
+        alpha_surface.fill((0, 0, 0, 0))
+        
+        # Blit the text onto the alpha surface with the current alpha
+        alpha_surface.blit(text_surface, (0, 0))
+        alpha_surface.set_alpha(self.alpha)
+        
+        # Calculate position with offset
+        pos_x = self.x - alpha_surface.get_width() // 2
+        pos_y = self.y - alpha_surface.get_height() // 2 + self.y_offset
+        
+        # Draw to the main surface
+        surface.blit(alpha_surface, (pos_x, pos_y))
+
+class Particle:
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.size = random.randint(1, 3)
+        self.color = color
+        self.speed_x = random.uniform(-1, 1)
+        self.speed_y = random.uniform(-1, 1)
+        self.lifetime = random.uniform(0.5, 1.5)  # Lifetime in seconds
+        self.creation_time = time.time()
+        self.alpha = 255  # Start fully opaque
+    
+    def update(self):
+        # Update position
+        self.x += self.speed_x
+        self.y += self.speed_y
+        
+        # Calculate remaining lifetime as a percentage
+        elapsed = time.time() - self.creation_time
+        remaining_life = max(0, 1 - (elapsed / self.lifetime))
+        
+        # Fade out as lifetime decreases
+        self.alpha = int(255 * remaining_life)
+        
+        # Return True if particle is still alive
+        return elapsed < self.lifetime
+    
+    def draw(self, surface):
+        # Create a surface with per-pixel alpha
+        particle_surface = pygame.Surface((self.size * 2, self.size * 2), pygame.SRCALPHA)
+        
+        # Get color with alpha
+        color_with_alpha = (*self.color, self.alpha)
+        
+        # Draw the particle
+        pygame.draw.circle(particle_surface, color_with_alpha, (self.size, self.size), self.size)
+        
+        # Blit to the main surface
+        surface.blit(particle_surface, (int(self.x - self.size), int(self.y - self.size)))
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         self.image = player_image
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)
+        self.last_particle_time = 0
+        self.particle_interval = 0.05  # Time between particle spawns in seconds
     
     def update(self, x, y):
         self.rect.topleft = (x, y)
-
+        
+        # Generate particles based on multiplier
+        if score_multiplier > 1:
+            current_time = time.time()
+            if current_time - self.last_particle_time >= self.particle_interval:
+                self.generate_particles()
+                self.last_particle_time = current_time
+    
+    def generate_particles(self):
+        """Generate particles around the player based on current multiplier"""
+        global particles
+        
+        # Get color based on multiplier
+        color = particle_colors.get(score_multiplier, WHITE)
+        
+        # Number of particles to generate increases with multiplier
+        num_particles = score_multiplier
+        
+        # Generate particles around the player
+        for _ in range(num_particles):
+            # Calculate random position around the player
+            offset_x = random.randint(-10, 10) + self.rect.width // 2
+            offset_y = random.randint(-10, 10) + self.rect.height // 2
+            
+            # Create new particle
+            new_particle = Particle(
+                self.rect.left + offset_x,
+                self.rect.top + offset_y,
+                color
+            )
+            
+            # Add to particles list, maintaining maximum count
+            particles.append(new_particle)
+            if len(particles) > max_particles:
+                particles.pop(0)  # Remove oldest particle
+    
 class Generator(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -232,7 +382,7 @@ class Projectile(pygame.sprite.Sprite):
     def get_projectile_image_for_level(self, level):
         """Get the appropriate projectile image based on the current difficulty level"""
         # Convert level to grade
-        percentage = min(100, ((level - 1) * 5 / 200) * 100)
+        percentage = (score / 200) * 100
         
         if percentage >= 95.2:
             grade = "1.00"
@@ -301,8 +451,7 @@ all_sprites.add(point)
 
 def get_grade_info(score):
     """Get grade and message based on score percentage"""
-    max_score = 200
-    percentage = min(100, (score / max_score) * 100)
+    percentage = (score / 200) * 100
     
     if percentage > 100:
         grade = "1.00"
@@ -324,7 +473,7 @@ def get_grade_info(score):
         message = "Dos por dos. So goods!"
     elif percentage >= 73.2:
         grade = "2.25"
-        message = "Almost flat dos!"
+        message = "Hapit na flat dos!"
     elif percentage >= 68.8:
         grade = "2.50"
         message = "Okay lang. Okay nato"
@@ -333,7 +482,7 @@ def get_grade_info(score):
         message = "Yes dili Tres!"
     elif percentage >= 60:
         grade = "3.00"
-        message = "Pasado! Amen!"
+        message = "Importante Pasar! Amen!"
     elif percentage >= 55:
         grade = "4.00"
         message = "Conditional! Take Removal!"
@@ -411,13 +560,15 @@ def start_game():
     """Start a new game"""
     global player_pos, projectiles, game_state, score, last_projectile_time, point_pos
     global difficulty_level, projectile_interval, score_multiplier, last_point_time
-    global projectile_sprites
+    global projectile_sprites, particles, score_popups
 
     player_pos = [SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4]
     player.update(player_pos[0], player_pos[1])
     
-    # Clear projectiles
+    # Clear projectiles, particles, and score popups
     projectiles = []
+    particles = []
+    score_popups = []
     projectile_sprites.empty()
     
     game_state = STATE_PLAYING
@@ -504,7 +655,7 @@ def handle_events():
 
 def check_point_collision():
     """Check if player has collected the point"""
-    global score, point_pos, score_multiplier, last_point_time
+    global score, point_pos, score_multiplier, last_point_time, score_popups
     
     # Use sprite collision detection
     if player.rect.colliderect(point.rect):
@@ -512,6 +663,10 @@ def check_point_collision():
         
         # Add score with multiplier (score_multiplier points per collection)
         score += score_multiplier
+        
+        # Create a score popup at the point's position
+        popup_color = particle_colors.get(score_multiplier, WHITE)
+        score_popups.append(ScorePopup(point_pos[0], point_pos[1], score_multiplier, popup_color))
 
         # Check if this point was collected within the multiplier time window
         if current_time - last_point_time < multiplier_duration:
@@ -537,13 +692,29 @@ def check_point_collision():
 
 def update():
     """Update game state"""
-    global projectiles, last_projectile_time, game_state, projectile_sprites
+    global projectiles, last_projectile_time, game_state, projectile_sprites, particles, score_popups
     
     if game_state != STATE_PLAYING:
         return
     
     # Update multiplier timer
     update_multiplier()
+    
+    # Update particles
+    i = 0
+    while i < len(particles):
+        if particles[i].update():
+            i += 1
+        else:
+            particles.pop(i)
+    
+    # Update score popups
+    i = 0
+    while i < len(score_popups):
+        if score_popups[i].update():
+            i += 1
+        else:
+            score_popups.pop(i)
     
     # Generate new projectile based on current interval
     current_time = time.time()
@@ -566,7 +737,7 @@ def update():
                 game_state = STATE_GAME_OVER
                 
                 # Play appropriate game over sound based on score/grade
-                percentage = min(100, (score / 200) * 100)
+                percentage = (score / 200) * 100
                 
                 # Just two sound effects - one for failing grades, one for passing grades
                 if percentage >= 60:  # 3.00 and better (passing)
@@ -612,7 +783,7 @@ def draw_start_screen():
     font_context = pygame.font.SysFont(None, 28)
     context_text = [
         "Finals week. Last sem. 200-items exam.",
-        "Ikaw ang last bluebook para musalba sa imong grado!.",
+        "Ikaw ang last bluebook para mosalba sa imong grado!.",
         "Collect correct answers to increase your score.",
         "Dodge the flying grades — from Singko all the way to Uno!",
         "The longer you survive, the higher the grades that chase you.",
@@ -708,18 +879,33 @@ def draw_multiplier_bar():
         fill_width = int((multiplier_timer / multiplier_duration) * bar_width)
         if fill_width > 0:
             pygame.draw.rect(screen, multiplier_color, (bar_x, bar_y, fill_width, bar_height))
+            
+        # Add pulsing effect to the multiplier text when active
+        pulse_scale = 1.0 + 0.2 * math.sin(time.time() * 8)  # Pulsing between 0.8 and 1.2 times original size
+        pulse_font = pygame.font.SysFont(None, int(36 * pulse_scale))
+        pulse_text = pulse_font.render(f"{score_multiplier}x", True, multiplier_color)
+        pulse_rect = pulse_text.get_rect(center=multiplier_rect.center)
+        screen.blit(pulse_text, pulse_rect)
 
 def draw_game():
     """Draw the game screen"""
     # Clear the screen
     screen.fill(BLACK)
+    
+    # Draw all particles
+    for particle in particles:
+        particle.draw(screen)
 
     # Draw all sprites
     all_sprites.draw(screen)
     projectile_sprites.draw(screen)
+    
+    # Draw all score popups
+    for popup in score_popups:
+        popup.draw(screen)
 
     # Get percentage only (not grade or message during gameplay)
-    percentage = min(100, (score / 200) * 100)
+    percentage = (score / 200) * 100
     
     # Draw score, percentage, level and high score
     font = pygame.font.SysFont(None, 36)
@@ -824,3 +1010,66 @@ def main():
 
 if __name__ == "__main__":
     main()
+# Particle system variables
+particle_colors = {
+    1: WHITE,      # 1x multiplier
+    2: GREEN,      # 2x multiplier
+    3: BLUE,       # 3x multiplier
+    4: ORANGE,     # 4x multiplier
+    5: PURPLE      # 5x multiplier
+}
+particles = []
+max_particles = 40  # Maximum number of particles to display at once
+
+# Score popup variables
+score_popups = []
+
+# Point object variables
+point_pos = [0, 0]
+min_distance_from_center = 150  # Minimum distance from center
+class Player(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = player_image
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+        self.last_particle_time = 0
+        self.particle_interval = 0.05  # Time between particle spawns in seconds
+    
+    def update(self, x, y):
+        self.rect.topleft = (x, y)
+        
+        # Generate particles based on multiplier
+        if score_multiplier > 1:
+            current_time = time.time()
+            if current_time - self.last_particle_time >= self.particle_interval:
+                self.generate_particles()
+                self.last_particle_time = current_time
+    
+    def generate_particles(self):
+        """Generate particles around the player based on current multiplier"""
+        global particles
+        
+        # Get color based on multiplier
+        color = particle_colors.get(score_multiplier, WHITE)
+        
+        # Number of particles to generate increases with multiplier
+        num_particles = score_multiplier
+        
+        # Generate particles around the player
+        for _ in range(num_particles):
+            # Calculate random position around the player
+            offset_x = random.randint(-10, 10) + self.rect.width // 2
+            offset_y = random.randint(-10, 10) + self.rect.height // 2
+            
+            # Create new particle
+            new_particle = Particle(
+                self.rect.left + offset_x,
+                self.rect.top + offset_y,
+                color
+            )
+            
+            # Add to particles list, maintaining maximum count
+            particles.append(new_particle)
+            if len(particles) > max_particles:
+                particles.pop(0)  # Remove oldest particle
