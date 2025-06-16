@@ -34,8 +34,18 @@ ORANGE = (255, 165, 0)
 CYAN = (0, 255, 255)
 MAGENTA = (255, 0, 255)
 
+# Use custom image icon
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and PyInstaller"""
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+icon = pygame.image.load(resource_path("images/icon.png"))
+
 # Create the game window
-icon = pygame.image.load("images/player.png")  # Use your custom image file
 pygame.display.set_icon(icon)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("The Last Bluebook")  # Optional: also set the window title
