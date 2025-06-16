@@ -35,8 +35,10 @@ CYAN = (0, 255, 255)
 MAGENTA = (255, 0, 255)
 
 # Create the game window
+icon = pygame.image.load("images/player.png")  # Use your custom image file
+pygame.display.set_icon(icon)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("POV: FINALS EXAM!")
+pygame.display.set_caption("The Last Bluebook")  # Optional: also set the window title
 clock = pygame.time.Clock()
 
 # Create directories if they don't exist
